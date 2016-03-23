@@ -1,6 +1,5 @@
 #include <THC/THC.h>
-#include <THC/THApply.cuh>
-
+#include <THC/THCApply.cuh>
 
 #define THIndexTensor THCudaTensor
 #define THIndexTensor_(NAME) THCudaTensor_ ## NAME

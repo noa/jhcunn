@@ -53,6 +53,6 @@ end
 local function_names = extract_function_names(JHCUNN_h)
 
 JHNN.kernels['torch.CudaTensor'] = JHNN.bind(JHCUNN.C, function_names, 'Cuda', JHCUNN.getState)
-torch.getmetatable('torch.CudaTensor').THNN = JHNN.kernels['torch.CudaTensor']
+torch.getmetatable('torch.CudaTensor').JHNN = JHNN.kernels['torch.CudaTensor']
 
 return JHCUNN

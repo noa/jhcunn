@@ -136,7 +136,8 @@ __global__ void jhcunn_LookupTable_accGradParametersKernel(
       const int gradOutputRow = ((int) indices[idx] - 1) * stride;
 
       //const float scale = count ? defaultScale / count[idx] : defaultScale;
-      const float scale = count ? defaultScale / count[idx] : defaultScale;
+      const int batchIndex = idx/batchSize;
+      const float scale = count ? defaultScale[batchIndex] / count[idx] : defaultScale[batchIndex];
 
       float gradient[SZ];
       float weight[SZ];
@@ -183,7 +184,7 @@ void JHCUNN_CudaLookupTable_accGradParameters(
   THCudaTensor *indices,
   bool scaleGradByFreq,
   int paddingValue,
-  THCudaTensor scale)
+  THCudaTensor *scale)
 {
   THCUNN_assertSameGPU(state, 5, input, gradOutput, gradWeight, sorted, indices);
   if (!(THCudaTensor_isContiguous(state, input) &&
@@ -200,20 +201,20 @@ void JHCUNN_CudaLookupTable_accGradParameters(
   long numel = THCudaTensor_nElement(state, input);
   long stride = gradWeight->stride[0];
 
-  long numi = THCudaTensor_size(input, 0);
-  long numj = THCudaTensor_size(input, 1);
+  long numi = THCudaTensor_size(state, input, 0);
+  long numj = THCudaTensor_size(state, input, 1);
 
-  if(numi != THCudaTensor_size(scale, 0)
+  if(numi != THCudaTensor_size(state, scale, 0))
      THError("size mismatch between input and scale");
 
   cudaStream_t stream = THCState_getCurrentStream(state);
 
   if (numel <= 768 && !scaleGradByFreq) {
-    cunn_LookupTable_accGradParametersKernelByFeature<<<DIVUP(stride,4), 128, 0, stream>>>(
+    jhcunn_LookupTable_accGradParametersKernelByFeature<<<DIVUP(stride,4), 128, 0, stream>>>(
       THCudaTensor_data(state, input),
       THCudaTensor_data(state, gradOutput),
       THCudaTensor_data(state, gradWeight),
-      scale,
+      THCudaTensor_data(state, scale),
       numi,
       numel,
       stride,
@@ -271,13 +272,13 @@ void JHCUNN_CudaLookupTable_accGradParameters(
 
   dim3 grid(DIVUP(numel,4), DIVUP(stride,128));
   dim3 block(32, 4);
-  cunn_LookupTable_accGradParametersKernel<<<grid, block, 0, stream>>>(
+  jhcunn_LookupTable_accGradParametersKernel<<<grid, block, 0, stream>>>(
     sorted_data,
     indices_data,
     THCudaTensor_data(state, gradOutput),
     THCudaTensor_data(state, gradWeight),
     count_data,
-    scale,
+    THCudaTensor_data(state, scale),
     numi,
     numel,
     stride,
