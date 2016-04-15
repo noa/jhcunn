@@ -174,7 +174,7 @@ __global__ void jhcunn_LookupTable_accGradParametersKernel(
   }
 }
 
-void JHCUNN_CudaLookupTable_accGradParameters(
+void JHNN_CudaLookupTable_accGradParameters(
   THCState *state,
   THIndexTensor *input,
   THCudaTensor *gradOutput,

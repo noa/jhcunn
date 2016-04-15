@@ -1,5 +1,5 @@
 local ffi = require 'ffi'
-local JHNN = require 'nn.JHNN'
+local JHNN = require 'jhnn.JHNN'
 
 local JHCUNN = {}
 
@@ -12,7 +12,7 @@ function JHCUNN.getState()
    return THCState_ptr(cutorch.getState());
 end
 
-local JHCUNN_h = require 'cunn.JHCUNN_h'
+local JHCUNN_h = require 'jhcunn.JHCUNN_h'
 -- strip all lines starting with #
 -- to remove preprocessor directives originally present
 -- in THNN.h
@@ -38,6 +38,7 @@ for i=1,#replacements do
    for k,v in pairs(r) do
       s = string.gsub(s, k, v)
    end
+   print(s)
    ffi.cdef(s)
 end
 
@@ -51,6 +52,9 @@ end
 
 -- build function table
 local function_names = extract_function_names(JHCUNN_h)
+
+print('[JHCUNN] function names:')
+print(function_names)
 
 JHNN.kernels['torch.CudaTensor'] = JHNN.bind(JHCUNN.C, function_names, 'Cuda', JHCUNN.getState)
 torch.getmetatable('torch.CudaTensor').JHNN = JHNN.kernels['torch.CudaTensor']

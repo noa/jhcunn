@@ -7,8 +7,7 @@
 #define THIntegerTensor THCudaTensor
 #define THIntegerTensor_(NAME) THCudaTensor_ ## NAME
 
-TH_API void JHNN_CudaLookupTable_accGradParameters(
-                                                   THCState *state,
+TH_API void JHNN_CudaLookupTable_accGradParameters(THCState *state,
                                                    THIndexTensor *input,
                                                    THCudaTensor *gradOutput,
                                                    THCudaTensor *gradWeight,
