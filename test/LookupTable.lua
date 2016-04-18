@@ -9,6 +9,9 @@ local mytester = torch.Tester()
 
 local precision = 1e-5
 
+local precision_forward = 1e-4
+local precision_backward = 1e-2
+
 function mytest.weightedGradUpdate()
    local weights = torch.CudaTensor({0.1,2,1,0.5})
    local idim = 5
@@ -16,7 +19,7 @@ function mytest.weightedGradUpdate()
    local batchSize = 4
    local batchLen = 1
    local input = torch.LongTensor(batchSize, batchLen):random(1, idim)
-   local module = nn.LookupTable(idim, odim)
+   local module = nn.LookupTable(idim, odim):cuda()
    local refGradWeight = module.gradWeight:clone():zero()
 
    --print('input:')
@@ -29,12 +32,13 @@ function mytest.weightedGradUpdate()
       local dout = module.output.new():resizeAs(module.output)
       dout:fill(1)
       local din = module:backward(input[b], dout, weights[b])
+      cutorch.synchronize()
       refGradWeight:add(module.gradWeight)
    end
 
    --print('input ndim = ' .. input:nDimension())
 
-   local module = jhnn.LookupTable(idim, odim)
+   local module = jhnn.LookupTable(idim, odim):cuda()
    module:zeroGradParameters()
 
    input = input:cuda()
@@ -46,89 +50,135 @@ function mytest.weightedGradUpdate()
    dout = dout:cuda()
 
    module:backward(input, dout, weights)
+   cutorch.synchronize()
 
    mytester:eq(module.gradWeight, refGradWeight, 0.001)
 end
 
-function mytest.LookupTable()
-   local totalIndex = math.random(6,9)
-   local nIndex = math.random(3,5)
-   local entry_size = math.random(2,5)
-   local jac = nn.Jacobian
+function mytest.LookupTable_forward()
+   local nVocab = 10000
+   local nDim = 100
+   local nInput = 1000
+   local nloop = 10
 
-   local function dotest(module, input, minval, maxval)
-       local output = module:forward(input)
-       module:backwardUpdate(input, output, 0.1)
-       input:zero()
+   local tm = {}
+   local title = string.format('LookupTable forward %d x %d', nVocab, nDim)
 
-       -- 1D
-       local err = jac.testJacobianParameters(module, input, module.weight, module.gradWeight, minval, maxval)
-       mytester:assertlt(err,precision, '1D error on weight ')
-
-       local err = jac.testJacobianUpdateParameters(module, input, module.weight, minval, maxval)
-       mytester:assertlt(err,precision, '1D error on weight [direct update] ')
-
-       module.gradWeight:zero()
-       for t,err in pairs(jac.testAllUpdate(module, input, 'weight', 'gradWeight')) do
-          mytester:assertlt(err, precision, string.format(
-                             '1D error on weight [%s]', t))
-       end
-
-       -- 2D
-       local nframe = math.random(2,5)
-       local input = torch.IntTensor(nframe, nIndex):zero()
-
-       local err = jac.testJacobianParameters(module, input, module.weight, module.gradWeight, minval, maxval)
-       mytester:assertlt(err,precision, '2D error on weight ')
-
-       local err = jac.testJacobianUpdateParameters(module, input, module.weight, minval, maxval)
-       mytester:assertlt(err,precision, '2D error on weight [direct update] ')
-
-       module.gradWeight:zero()
-       for t,err in pairs(jac.testAllUpdate(module, input, 'weight', 'gradWeight')) do
-          mytester:assertlt(err, precision, string.format(
-                             '2D error on weight [%s]', t))
-       end
-
-       -- IO
-       module.gradInput = torch.Tensor(3,4):zero() --fixes an error
-       local ferr,berr = jac.testIO(module,input,minval,maxval)
-       mytester:asserteq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
-       mytester:asserteq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
-
-       -- accUpdate
-       module:accUpdateOnly()
-       mytester:assert(not module.gradWeight, 'gradWeight is nil')
-       module:float()
-       local output = module:forward(input)
-       module:backwardUpdate(input, output, 0.1)
+   local input = torch.LongTensor(nInput):random(nVocab)
+   local sconv = jhnn.LookupTable(nVocab, nDim)
+   local groundtruth = sconv:forward(input)
+   local a = torch.Timer()
+   for i = 1,nloop do
+       groundtruth = sconv:forward(input)
    end
-   -- test without padding
-   local input = torch.randperm(totalIndex):narrow(1,1,nIndex):int()
-   local module = jhnn.LookupTable(totalIndex, entry_size)
-   dotest(module, input, 1, totalIndex)
-   -- test with padding set to 1, but no padding in inputs
-   local input = torch.randperm(totalIndex):narrow(1,1,nIndex):int()
-   local module = jhnn.LookupTable(totalIndex, entry_size, 1)
-   dotest(module, input, 2, totalIndex)
-   -- test whether padding weights remain unchanged
-   local paddingValue = math.random(totalIndex)
-   local module = jhnn.LookupTable(totalIndex, entry_size, paddingValue)
-   local padw = module.weight:select(1,paddingValue):fill(1)
-   local padw_sum = padw:sum()
-   local input = torch.IntTensor(nIndex)
-   for i = 1, 100 do
-       input:apply(
-       function() -- set randomly half of the input as padding
-           if torch.random(2) == 1 then return paddingValue end
-           return torch.random(totalIndex)
-       end)
-       local y = module:updateOutput(input)
-       module:updateGradInput(input, y)
-       module:accUpdateGradParameters(input, y, 0.1)
+   tm.cpu = a:time().real
+
+   input = input:cuda()
+   local gconv = sconv:cuda()
+   local rescuda = gconv:forward(input)
+   a:reset()
+   for i = 1,nloop do
+       rescuda = gconv:forward(input)
    end
-   local err = padw_sum - padw:sum()
-   mytester:assertlt(err,precision, 'padding update error ')
+   cutorch.synchronize()
+   tm.gpu = a:time().real
+
+   --local error = rescuda:float() - groundtruth
+   --mytester:assertlt(error:abs():max(), precision_forward, 'error on state')
+   mytester:eq(rescuda:float(), groundtruth:float(), precision_forward, 'error on state')
+end
+
+function mytest.LookupTable_backward()
+   local grid = {
+      nInput = {10, 101, 1000, 10007},
+      nVocab = {100, 10000},
+      nDim = {97, 255},
+      scaleGradByFreq = {false, true},
+      batch = {false, true},
+      paddingValue = {0, 1},
+   }
+
+   for itr = 1, 10 do
+      -- Randomly sample from grid of parameters
+      local s = {}
+      for k, v in pairs(grid) do
+         s[k] = v[torch.random(#v)]
+      end
+
+      local input, gradOutput
+      if s.batch then
+         input = torch.LongTensor(s.nInput, 5):random(s.nVocab)
+         gradOutput = torch.randn(s.nInput, 5, s.nDim)
+      else
+         input = torch.LongTensor(s.nInput):random(s.nVocab)
+         gradOutput = torch.randn(s.nInput, s.nDim)
+      end
+
+      local sconv = jhnn.LookupTable(s.nVocab, s.nDim, s.paddingValue)
+      local gconv = sconv:clone():cuda()
+      if s.scaleGradByFreq then
+         sconv = sconv:scaleGradByFreq()
+         gconv = gconv:scaleGradByFreq()
+      end
+
+      sconv:forward(input)
+      sconv:backward(input, gradOutput)
+
+      input = input:cuda()
+      gradOutput = gradOutput:cuda()
+      gconv:forward(input)
+      gconv:backward(input, gradOutput)
+
+      -- print(gconv:type())
+      -- print(gconv.gradWeight:size())
+      -- print(sconv:type())
+      -- print(sconv.gradWeight:size())
+
+      -- local weightGradError = gconv.gradWeight:float() - sconv.gradWeight
+      -- mytester:assertlt(weightGradError:abs():max(), precision_backward,
+      mytester:eq(gconv.gradWeight:float(), sconv.gradWeight:float(), precision_backward,
+         'error on weight for size ' .. tostring(s.nInput) ..
+          ' nVocab: ' .. tostring(s.nVocab) ..
+          ' nDim ' .. tostring(s.nDim) ..
+          ' scaleGradByFreq: ' .. tostring(s.scaleGradByFreq) ..
+          ' batch: ' .. tostring(s.batch) ..
+          ' paddingValue: ' .. tostring(s.paddingValue))
+   end
+
+   local nVocab = 10000
+   local nDim = 128
+   local nInput = 1000
+   local nloop = 100
+   local tm = {}
+   local title = string.format('LookupTable backward %d x %d', nVocab, nDim, nInput)
+
+   local input = torch.LongTensor(nInput):random(nVocab)
+   local gradOutput = torch.randn(nInput, nDim)
+   local sconv = jhnn.LookupTable(nVocab, nDim)
+   local gconv = sconv:clone():cuda()
+
+   sconv:forward(input)
+   sconv:backward(input, gradOutput)
+   local a = torch.Timer()
+   for i = 1,nloop do
+       sconv:backward(input, gradOutput)
+   end
+   tm.cpu = a:time().real
+
+   input = input:cuda()
+   gradOutput = gradOutput:cuda()
+   gconv:forward(input)
+   gconv:backward(input, gradOutput)
+   a:reset()
+   for i = 1,nloop do
+       gconv:backward(input, gradOutput)
+   end
+   cutorch.synchronize()
+   tm.gpu = a:time().real
+
+   -- local weightGradError = gconv.gradWeight:float() - sconv.gradWeight
+   -- mytester:assertlt(weightGradError:abs():max(), precision_backward, 'error on weight')
+   mytester:eq(gconv.gradWeight:float(), sconv.gradWeight:float(), precision_backward, 'error on weight')
 end
 
 -- randomize stuff
