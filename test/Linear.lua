@@ -2,7 +2,6 @@
 
 require('torch')
 require('nn')
-require('jhnn')
 require('jhcunn')
 
 local mytest = torch.TestSuite()

@@ -16,4 +16,4 @@ TH_API void JHNN_CudaLookupTable_accGradParameters(THCState *state,
                                                    THCudaTensor *indices,
                                                    bool scaleGradByFreq,
                                                    int paddingValue,
-                                                   THCudaTensor scale);
+                                                   THCudaTensor *scale);

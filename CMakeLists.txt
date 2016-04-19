@@ -25,6 +25,9 @@ FILE(GLOB luasrc *.lua)
 
 ADD_SUBDIRECTORY(lib)
 
+MESSAGE("Install destination: ${Torch_INSTALL_LUA_PATH_SUBDIR}/jhcunn")
+MESSAGE("LUASRC = ${luasrc}")
+
 INSTALL(
   FILES
   ${luasrc}

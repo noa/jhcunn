@@ -2,7 +2,7 @@
 
 require('torch')
 require('nn')
-require('jhnn')
+require('jhcunn')
 
 local mytest = torch.TestSuite()
 local mytester = torch.Tester()
@@ -10,7 +10,7 @@ local mytester = torch.Tester()
 local precision = 1e-5
 
 function mytest.weightedGradUpdate()
-   local weights = torch.DoubleTensor({0.1,2,1,0.5})
+   local weights = torch.CudaTensor({0.1,2,1,0.5})
    local idim = 5
    local odim = 3
    local batchSize = 4
@@ -21,7 +21,7 @@ function mytest.weightedGradUpdate()
 
    --print('input:')
    --print(input)
-   
+
    for b = 1, weights:size(1) do
       module:zeroGradParameters()
       local out = module:forward(input[b])
@@ -33,12 +33,18 @@ function mytest.weightedGradUpdate()
    end
 
    --print('input ndim = ' .. input:nDimension())
-   
+
    local module = jhnn.LookupTable(idim, odim)
    module:zeroGradParameters()
+
+   input = input:cuda()
+
    module:forward(input)
    local dout = module.output.new():resizeAs(module.output)
    dout:fill(1)
+
+   dout = dout:cuda()
+
    module:backward(input, dout, weights)
 
    mytester:eq(module.gradWeight, refGradWeight, 0.001)
