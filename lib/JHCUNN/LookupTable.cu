@@ -206,7 +206,7 @@ void JHNN_CudaLookupTable_accGradParameters(
   int nDim = THCudaTensor_nDimension(state, input);
 
   if (nDim != 1 && nDim != 2) {
-    THError("input must be a vector or matrix");
+      THError("input must be a vector or matrix");
   }
 
   // printf("ndim = %d\n", nDim);
