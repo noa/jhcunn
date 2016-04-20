@@ -13,42 +13,39 @@ local precision_forward = 1e-4
 local precision_backward = 1e-2
 
 function mytest.weightedGradUpdate()
-   local weights = torch.CudaTensor({0.1,2,1,0.5})
+
+   torch.manualSeed(42)
+   cutorch.seed(42)
+
    local idim = 5
    local odim = 3
-   local batchSize = 4
+   local batchSize = 10
    local batchLen = 1
+
+   local weights = torch.CudaTensor(batchSize):uniform(0,1)
+
    local input = torch.LongTensor(batchSize, batchLen):random(1, idim)
    local module = nn.LookupTable(idim, odim):cuda()
    local refGradWeight = module.gradWeight:clone():zero()
 
-   --print('input:')
-   --print(input)
-
    for b = 1, weights:size(1) do
       module:zeroGradParameters()
       local out = module:forward(input[b])
-      --print(out)
       local dout = module.output.new():resizeAs(module.output)
       dout:fill(1)
       local din = module:backward(input[b], dout, weights[b])
       cutorch.synchronize()
+
       refGradWeight:add(module.gradWeight)
    end
 
-   --print('input ndim = ' .. input:nDimension())
-
    local module = jhnn.LookupTable(idim, odim):cuda()
    module:zeroGradParameters()
-
    input = input:cuda()
-
    module:forward(input)
    local dout = module.output.new():resizeAs(module.output)
    dout:fill(1)
-
    dout = dout:cuda()
-
    module:backward(input, dout, weights)
    cutorch.synchronize()
 

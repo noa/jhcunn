@@ -2,9 +2,6 @@ local ffi = require 'ffi'
 local THNN = require 'nn.THNN'
 local JHNN = require 'jhnn.JHNN'
 
-print("JHNN")
-print(JHNN)
-
 local JHCUNN = {}
 
 -- load libTHCUNN
@@ -21,17 +18,10 @@ local JHCUNN = {}
  --search path.then
 JHCUNN.C = ffi.load(package.searchpath('libJHCUNN', package.cpath))
 
-print('JHCUNN.C:')
-print(JHCUNN.C)
-print('---')
-
 -- Creates a ctype object for the given ct. This function is
 -- especially useful to parse a cdecl only once and then use the
 -- resulting ctype object as a constructor.
 local THCState_ptr = ffi.typeof('THCState*')
-
-print('THCState_ptr = ')
-print(THCState_ptr)
 
 function JHCUNN.getState()
    return THCState_ptr(cutorch.getState())
@@ -77,13 +67,7 @@ end
 -- build function table
 local function_names = extract_function_names(JHCUNN_h)
 
-print('[JHCUNN] function names:')
-print(function_names)
-
 JHNN.kernels['torch.CudaTensor'] = JHNN.bind(JHCUNN.C, function_names, 'Cuda', JHCUNN.getState)
 torch.getmetatable('torch.CudaTensor').JHNN = JHNN.kernels['torch.CudaTensor']
-
-print('metatable:')
-print(torch.getmetatable('torch.CudaTensor').JHNN)
 
 return JHCUNN
