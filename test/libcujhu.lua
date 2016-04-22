@@ -178,6 +178,71 @@ function mytest.SampleUnnormalized()
    tester:eq(S1,S2,0.1)
 end
 
+function mytest.EncodeDecode()
+   local N = 7
+   local dim = { 64, 128, 256, 512, 1024, 2048 }
+
+   local function encode(i, j, result)
+      result:copy(i)
+      return result:map(j, function(s, t) return s + (t-1)*N end)
+   end
+
+   local function decode(i, o1, o2)
+      for k = 1, i:size(1) do
+         o1[k] = ((i[k]-1) % N) + 1
+         o2[k] = math.floor(((i[k]-1) / N) + 1)
+      end
+   end
+
+   for _, d in ipairs(dim) do
+      local input1 = torch.LongTensor(d):random(7)
+      local input2 = torch.LongTensor(d):random(7)
+
+      local input1_gpu = input1:cuda()
+      local input2_gpu = input2:cuda()
+
+      local gold = torch.LongTensor(d)
+      encode(input1, input2, gold)
+
+      local result = torch.LongTensor(d)
+      local result_gpu = result:cuda()
+
+      -- CPU reference
+      result.jhu.encode(input1, input2, result, N)
+
+      -- GPU version
+      result_gpu.jhu.encode(input1_gpu, input2_gpu, result_gpu, N)
+      cutorch.synchronize()
+
+      tester:eq(gold, result)
+      tester:eq(gold, result_gpu:long())
+
+      -- decode to get inputs back
+      local decoded1 = torch.LongTensor(d)
+      local decoded2 = torch.LongTensor(d)
+
+      local decoded1_gpu = decoded1:cuda()
+      local decoded2_gpu = decoded2:cuda()
+
+      decode(result, decoded1, decoded2)
+
+      tester:eq(decoded1, input1)
+      tester:eq(decoded2, input2)
+
+      -- CPU version
+      result.jhu.decode(result, decoded1, decoded2, N)
+
+      -- GPU version
+      result_gpu.jhu.decode(result_gpu, decoded1_gpu, decoded2_gpu, N)
+      cutorch.synchronize()
+
+      tester:eq(decoded1, input1)
+      tester:eq(decoded2, input2)
+      tester:eq(decoded1_gpu:long(), input1)
+      tester:eq(decoded2_gpu:long(), input2)
+   end
+end
+
 function mytest.LogScale()
    local D = 10
    -- Vector
