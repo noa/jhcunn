@@ -35,9 +35,9 @@ struct encode_functor {
 };
 
 __global__
-void encode(int n, float *input0, float *input1, float *output) {
+void encode(int N, int n, float *input0, float *input1, float *output) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i < n) {
+    if (i < N) {
         output[i] = input0[i] + (input1[i]-1)*n;
     }
 }
@@ -59,10 +59,12 @@ struct decode2_functor {
 };
 
 __global__
-void decode1(int n, float *input0, float *input1, float *output) {
+void decode(int N, int n, float *input, float *output0, float *output1) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i < n) {
-        output[i] = input0[i] + (input1[i]-1)*n;
+    if (i < N) {
+        int x = floorf(input[i] + 0.5f)-1;
+        output0[i] = (x % n) + 1;
+        output1[i] = (x / n) + 1;
     }
 }
 
@@ -95,7 +97,7 @@ static int jhu_THCEncode(lua_State *L) {
     if (ndim1 != ndim2)   THError("dim mismatch");
     if (nelem1 != nelem2) THError("size mismatch");
 
-    encode<<<(N+255)/256, 256>>>(N, input_data0, input_data1, output_data);
+    encode<<<(nelem1+255)/256, 256>>>(nelem1, N, input_data0, input_data1, output_data);
     
     /////////////////////////// THRUST VERSION DOESN'T COMPILE ///////////////////////////
     
@@ -125,6 +127,38 @@ static int jhu_THCEncode(lua_State *L) {
 }
 
 static int jhu_THCDecode(lua_State *L) {
+    int narg = lua_gettop(L);
+    if (narg != 4) {
+        THError("expecting exactly 4 arguments");
+    }
+
+    THCState *state = getCutorchState(L);
+
+    THCudaTensor *input = (THCudaTensor *)luaT_checkudata(L, 1,
+                                                          "torch.CudaTensor");
+    THCudaTensor *output0 = (THCudaTensor *)luaT_checkudata(L, 2,
+                                                            "torch.CudaTensor");
+    THCudaTensor *output1 = (THCudaTensor *)luaT_checkudata(L, 3,
+                                                            "torch.CudaTensor");
+    long N = lua_tonumber(L, 4);
+
+    float *input_data   = THCudaTensor_data(state, input);
+    float *output_data0 = THCudaTensor_data(state, output0);
+    float *output_data1 = THCudaTensor_data(state, output1);
+
+    int nelem0 = THCudaTensor_size(state, input, 0);
+    int nelem1 = THCudaTensor_size(state, output0, 0);
+    int nelem2 = THCudaTensor_size(state, output1, 0);
+
+    int ndim1 = THCudaTensor_nDimension(state, output0);
+    int ndim2 = THCudaTensor_nDimension(state, output1);
+
+    if (ndim1 != ndim2)   THError("dim mismatch");
+    if (nelem0 != nelem1) THError("size mismatch");
+    if (nelem1 != nelem2) THError("size mismatch");
+
+    decode<<<(nelem0+255)/256, 256>>>(nelem0, N, input_data, output_data0, output_data1);
+    
     return 0;
 }
 

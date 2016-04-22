@@ -4,6 +4,7 @@
 unpack = unpack or table.unpack
 require 'torch'
 require 'cutorch'
+require 'libjhu'
 require 'libcujhu'
 
 local mytest = torch.TestSuite()
@@ -181,6 +182,7 @@ end
 function mytest.EncodeDecode()
    local N = 7
    local dim = { 64, 128, 256, 512, 1024, 2048 }
+   --local dim = { 10 }
 
    local function encode(i, j, result)
       result:copy(i)
@@ -216,6 +218,13 @@ function mytest.EncodeDecode()
 
       tester:eq(gold, result)
       tester:eq(gold, result_gpu:long())
+
+      -- print('gold')
+      -- print(gold)
+      -- print('result')
+      -- print(result)
+      -- print('result_gpu')
+      -- print(result_gpu)
 
       -- decode to get inputs back
       local decoded1 = torch.LongTensor(d)
