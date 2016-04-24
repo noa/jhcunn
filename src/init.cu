@@ -10,6 +10,7 @@
 
 #include "utils.c"
 #include "LogSum.cu"
+#include "LogSum1d.cu"
 #include "LogSample.cu"
 #include "Sample.cu"
 #include "LogScale.cu"
@@ -25,6 +26,7 @@ int luaopen_libcujhu(lua_State *L) {
   lua_setglobal(L, "cujhu");
   
   jhu_THCLogSum_init(L);
+  jhu_THCLogSum1d_init(L);
   jhu_THCLogSample_init(L);
   jhu_THCSample_init(L);
   jhu_THCLogScale_init(L);

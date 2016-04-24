@@ -127,6 +127,7 @@ void jhu_cuda_log_sample(struct THCState *state,
                          THCudaTensor *prob_dist) {
   
   THAssert(THCudaTensor_checkGPU(state, 2, self, prob_dist));
+
   if (state->rngState->current_gen == NULL) {
       THError("Random number generators have not been initialized.");
   }
@@ -156,8 +157,9 @@ void jhu_cuda_log_sample(struct THCState *state,
   if (inputSize == 1) {
     THCudaTensor_resize2d(state, probDistContig, 1, numCategories);
   }
-  
-  THCudaTensor_resize2d(state, self, numDist, 1);
+
+  // numDist x 1
+  //THCudaTensor_resize2d(state, self, numDist, 1);
   
   // Optimized allocation-free implementation
   

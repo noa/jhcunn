@@ -84,6 +84,12 @@ static int jhu_THCEncode(lua_State *L) {
                                                            "torch.CudaTensor");
     long N = lua_tonumber(L, 4);
 
+    if(!THCudaTensor_isContiguous(state, input0) ||
+       !THCudaTensor_isContiguous(state, input1) ||
+       !THCudaTensor_isContiguous(state, output)) {
+        THError("tensor arguments must be contiguous");
+    }
+
     float *input_data0 = THCudaTensor_data(state, input0);
     float *input_data1 = THCudaTensor_data(state, input1);
     float *output_data = THCudaTensor_data(state, output);
