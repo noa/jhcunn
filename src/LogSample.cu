@@ -213,6 +213,7 @@ static int jhu_THCLogSample(lua_State *L) {
 
 static const struct luaL_Reg jhu_THCLogSample__ [] = {
   {"logsample", jhu_THCLogSample},
+  {"logsampled", jhu_THCLogSample}, // consistency with CPU version
   {0,0}
 };
 
