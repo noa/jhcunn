@@ -17,6 +17,7 @@
 #include "Scale.cu"
 #include "ClassNLLCriterionD.cu"
 #include "Encode.cu"
+#include "EqualSet.cu"
 
 LUA_EXTERNC DLL_EXPORT int luaopen_libcujhu(lua_State *L);
 
@@ -33,6 +34,7 @@ int luaopen_libcujhu(lua_State *L) {
   jhu_THCScale_init(L);
   jhu_ClassNLLCriterionD_init(L);
   jhu_THCEncode_init(L);
+  jhu_THCEqualSet_init(L);
   
   return 1;
 }

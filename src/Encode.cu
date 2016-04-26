@@ -170,7 +170,8 @@ static int jhu_THCDecode(lua_State *L) {
 
 static const struct luaL_Reg jhu_THEncode__ [] = {
     {"encode", jhu_THCEncode},
-    {"decode", jhu_THCDecode}
+    {"decode", jhu_THCDecode},
+    {0, 0}
 };
 
 static void jhu_THCEncode_init(lua_State *L) {
