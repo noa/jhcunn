@@ -13,10 +13,22 @@
 #include "THCTensorMath.h"
 
 __global__
-void equalset(int N, float *input, float *output, int val1, int val2) {
+void equalset1(int N, float *input, float *output, int val1, int val2) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i < N) {
         if((int)input[i] == val1) {
+            output[i] = input[i];
+        } else {
+            output[i] = (float)val2;
+        }
+    }
+}
+
+__global__
+void equalset2(int N, float *input, float *output, int val2) {
+    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i < N) {
+        if((int)input[i] == (int)output[i]) {
             output[i] = input[i];
         } else {
             output[i] = (float)val2;
@@ -57,8 +69,14 @@ static int jhu_THCEqualSet(lua_State *L) {
     int ndim2 = THCudaTensor_nDimension(state, output);
 
     if (ndim1 != ndim2) THError("dim mismatch");
-
-    equalset<<<(size1+255)/256, 256>>>(size1, input_data, output_data, val1, val2);
+    if (val1 == 0) THError("val should be 1-indexed or -1 if unused");
+    
+    if(val1 > 0) {
+        equalset1<<<(size1+255)/256, 256>>>(size1, input_data, output_data, val1, val2);
+    } else {
+        equalset2<<<(size1+255)/256, 256>>>(size1, input_data, output_data, val2);
+    }
+        
     
     return 0;
 }
