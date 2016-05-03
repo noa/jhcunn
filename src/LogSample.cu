@@ -211,9 +211,95 @@ static int jhu_THCLogSample(lua_State *L) {
   return 0;
 }
 
+__global__ void thrustSample(float* dest,
+                             long distributions,
+                             int categories,
+                             float* dist) {
+    for(long curDist = blockIdx.x; curDist < distributions; curDist += gridDim.x) {
+        
+    }
+}
+
+// static int jhu_THCThrustLogSample(lua_State *L) {
+//     THCState *state = getCutorchState(L);
+    
+//     THCudaTensor *output = (THCudaTensor*)luaT_checkudata(L, 2,
+//                                                           "torch.CudaTensor");
+//     THCudaTensor *dist = (THCudaTensor*)luaT_checkudata(L, 1,
+//                                                         "torch.CudaTensor");
+    
+//     THAssert(THCudaTensor_checkGPU(state, 2, self, dist));
+    
+//     if (state->rngState->current_gen == NULL) {
+//         THError("Random number generators have not been initialized.");
+//     }
+    
+//     int inputSize = THCudaTensor_nDimension(state, prob_dist);
+//     THArgCheck(inputSize > 0 && inputSize <= 2, 2,
+//                "prob_dist must be 1 or 2 dim");
+    
+//     // Categories are in the innermost dimension
+//     long numDist =
+//         inputSize == 1 ? 1 : THCudaTensor_size(state, dist, 0);
+//     long numCategoriesLong =
+//         inputSize == 1 ? THCudaTensor_size(state, dist, 0) :
+//         THCudaTensor_size(state, dist, 1);
+    
+//     // Since the index tensor is float, numCategories cannot exceed max
+//     // float integer precision
+//     THArgCheck(numCategoriesLong <= FLOAT32_MAX_CONSECUTIVE_INT, 2,
+//                "number of categories cannot exceed 2^24");
+//     int numCategories = (int) numCategoriesLong;
+    
+//     // It is possible that prob_dist is non-contiguous
+//     THCudaTensor* probDistContig = THCudaTensor_newContiguous(state, dist);
+    
+//     // Restructure data for 2d
+//     if (inputSize == 1) {
+//         THCudaTensor_resize2d(state, probDistContig, 1, numCategories);
+//     }
+    
+//     // Optimized allocation-free implementation
+    
+//     // To exploit greater parallelism for the sampling, generate the
+//     // Uniform random samples in a separate kernel launch, into the
+//     // result memory. The device RNG is thread-limited
+//     THCudaTensor_uniform(state, output, 0.0, 1.0);
+    
+//     // Run the kernel(s)
+//     cudaDeviceProp* props = THCState_getCurrentDeviceProperties(state);
+//     THAssert(props != NULL);
+  
+//     int numSM = props->multiProcessorCount;
+//     int maxThreads = props->maxThreadsPerBlock;
+    
+//     dim3 block(numCategories < maxThreads ? numCategories : maxThreads);
+//     dim3 grid(numDist < numSM * 4 ? numDist : numSM * 4);
+  
+//     thrustSample
+//     <<<grid, block, THCState_getCurrentStream(state)>>>(
+//         THCudaTensor_data(state, output),
+//         numDist,
+//         numCategories,
+//         THCudaTensor_data(state, probDistContig));
+    
+//     // Revert data restructuring based on input sizes
+//     if (inputSize == 1) {
+//         THCudaTensor_resize1d(state, self, 1);
+        
+//         // Unfortunately, if prob_dist is contiguous already,
+//         // newContiguous is not a private copy, so we have to restructure
+//         // this too, so as to not affect prob_dist
+//         THCudaTensor_resize1d(state, probDistContig, numCategories);
+//     }
+    
+//     THCudaTensor_free(state, probDistContig);
+// }
+
 static const struct luaL_Reg jhu_THCLogSample__ [] = {
   {"logsample", jhu_THCLogSample},
   {"logsampled", jhu_THCLogSample}, // consistency with CPU version
+  //{"thrust-logsample", jhu_THCThrustLogSample},
   {0,0}
 };
 
