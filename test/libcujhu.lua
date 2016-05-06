@@ -298,7 +298,7 @@ function mytest.EncodeDecode()
    end
 end
 
-function mytest.LogScale()
+function mytest.LogScaleInplace()
    local D = 10
    -- Vector
    local P = torch.DoubleTensor(D):uniform(0, 1):cuda()
@@ -312,6 +312,25 @@ function mytest.LogScale()
    local logP = torch.log(P)
    logP.jhu.logscale(logP)
    local diff = math.abs(logP:sum()-D)
+   tester:assert(diff < 1e-3, 'bad log sum: err='..diff)
+end
+
+function mytest.LogScale()
+   local D = 10
+   -- Vector
+   local P = torch.DoubleTensor(D):uniform(0, 1):cuda()
+   local result = P:clone()
+   local logP = torch.log(P)
+   logP.jhu.logscale(logP, result)
+   local diff = math.abs(result:sum()-1.0)
+   tester:assert(diff < 1e-3, 'bad log sum: err='..diff)
+
+   -- Matrix
+   local P = torch.DoubleTensor(D, D):uniform(0, 1):cuda()
+   local result = P:clone()
+   local logP = torch.log(P)
+   logP.jhu.logscale(logP, result)
+   local diff = math.abs(result:sum()-D)
    tester:assert(diff < 1e-3, 'bad log sum: err='..diff)
 end
 
